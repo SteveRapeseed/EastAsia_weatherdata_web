@@ -1,469 +1,898 @@
 ﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>东亚气象数据监控</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background: #f0f2f5;
-            color: #333;
-            min-height: 100vh;
-        }
-        .header {
-            background: linear-gradient(135deg, #1a73e8, #0d47a1);
-            color: white;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-        .header h1 { font-size: 22px; font-weight: 600; }
-        .header-left { display: flex; align-items: center; gap: 16px; }
-        .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }
-        .container { max-width: 1600px; margin: 0 auto; padding: 16px; }
-        .toolbar {
-            background: white;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            flex-wrap: wrap;
-        }
-        .toolbar input[type="text"] {
-            flex: 1;
-            min-width: 200px;
-            padding: 8px 12px;
-            border: 1px solid #d9d9d9;
-            border-radius: 6px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .toolbar input[type="text"]:focus { border-color: #1a73e8; }
-        .btn {
-            padding: 8px 20px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-        }
-        .btn-primary {
-            background: #1a73e8;
-            color: white;
-        }
-        .btn-primary:hover { background: #1557b0; }
-        .btn-primary:disabled { background: #a0c4ff; cursor: not-allowed; }
-        .btn-success {
-            background: #52c41a;
-            color: white;
-        }
-        .btn-success:hover { background: #389e0d; }
-        .status-bar {
-            font-size: 13px;
-            color: #666;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .status-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .status-dot.ok { background: #52c41a; }
-        .status-dot.loading { background: #faad14; animation: pulse 1s infinite; }
-        .status-dot.error { background: #ff4d4f; }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        .table-section {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            margin-bottom: 16px;
-            overflow: hidden;
-        }
-        .section-header {
-            padding: 12px 16px;
-            font-size: 15px;
-            font-weight: 600;
-            border-bottom: 1px solid #f0f0f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .table-wrap {
-            overflow-x: auto;
-            max-height: 600px;
-            overflow-y: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        thead { position: sticky; top: 0; z-index: 1; }
-        th {
-            background: #fafafa;
-            padding: 10px 12px;
-            text-align: left;
-            font-weight: 600;
-            border-bottom: 2px solid #e8e8e8;
-            white-space: nowrap;
-            cursor: pointer;
-            user-select: none;
-        }
-        th:hover { background: #f0f0f0; }
-        th .sort-icon { margin-left: 4px; opacity: 0.4; }
-        th.sorted .sort-icon { opacity: 1; color: #1a73e8; }
-        td {
-            padding: 8px 12px;
-            border-bottom: 1px solid #f5f5f5;
-            white-space: nowrap;
-        }
-        tr:hover td { background: #f5f8ff; }
-        .region-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 12px;
-            padding: 16px;
-        }
-        .stat-card {
-            border: 1px solid #f0f0f0;
-            border-radius: 8px;
-            padding: 12px 16px;
-            background: #fafbfc;
-        }
-        .stat-card .region-name {
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 8px;
-            color: #1a73e8;
-        }
-        .stat-card .stat-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            font-size: 13px;
-        }
-        .stat-card .stat-label { color: #888; }
-        .stat-card .stat-value { font-weight: 500; }
-        .stat-grid-empty {
-            padding: 32px;
-            text-align: center;
-            color: #999;
-        }
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.7);
-            z-index: 999;
-            justify-content: center;
-            align-items: center;
-            font-size: 16px;
-            color: #1a73e8;
-        }
-        .loading-overlay.show { display: flex; }
-        .spinner {
-            width: 36px; height: 36px;
-            border: 3px solid #e8e8e8;
-            border-top: 3px solid #1a73e8;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-right: 12px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .count-badge {
-            display: inline-block;
-            background: #e6f7ff;
-            color: #1890ff;
-            padding: 1px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        .time-cache {
-            font-size: 12px;
-            color: #999;
-        }
-        @media (max-width: 768px) {
-            .header h1 { font-size: 18px; }
-            .header-right { font-size: 12px; }
-            .stat-grid { grid-template-columns: 1fr; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>东亚气象数据监控</title>
+<script src="/static/chart.umd.min.js"></script>
+<style>
+:root {
+  --primary: #1565c0;
+  --primary-light: #1976d2;
+  --primary-dark: #0d47a1;
+  --accent: #00b0ff;
+  --bg: #eef2f7;
+  --card: #ffffff;
+  --text: #1a2332;
+  --text2: #5a6a7a;
+  --border: #dde4ee;
+  --red: #e53935;
+  --orange: #fb8c00;
+  --blue: #1976d2;
+  --cyan: #00acc1;
+  --green: #43a047;
+  --purple: #7b1fa2;
+  --shadow: 0 2px 12px rgba(21,101,192,.10);
+  --radius: 12px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'PingFang SC','Microsoft YaHei','Segoe UI',sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ========== HEADER ========== */
+.hd {
+  background: linear-gradient(100deg, #0d2a6b 0%, #1565c0 55%, #1a8fff 100%);
+  color: #fff;
+  padding: 0 28px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 3px 16px rgba(0,0,0,.25);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.hd-logo { display: flex; align-items: center; gap: 14px; }
+.hd-logo svg { width: 32px; height: 32px; opacity: .9; }
+.hd-title { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+.hd-sub { font-size: 12px; opacity: .7; letter-spacing: 2px; margin-top: 2px; }
+.hd-right { display: flex; align-items: center; gap: 22px; font-size: 13px; }
+.hd-clock { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.badge { background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3); border-radius: 20px; padding: 4px 14px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.badge-dot { width: 7px; height: 7px; border-radius: 50%; background: #69f0ae; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.btn-fetch {
+  background: rgba(255,255,255,.22); border: 1.5px solid rgba(255,255,255,.5);
+  color: #fff; border-radius: 20px; padding: 6px 18px; font-size: 13px; cursor: pointer;
+  transition: all .2s; display: flex; align-items: center; gap: 6px;
+}
+.btn-fetch:hover { background: rgba(255,255,255,.35); }
+.btn-fetch:disabled { opacity: .45; cursor: not-allowed; }
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== LAYOUT ========== */
+.wrap { max-width: 1600px; margin: 0 auto; padding: 20px 20px 40px; }
+
+/* ========== STATUS BAR ========== */
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-left: 4px solid transparent;
+}
+.stat-card.c1 { border-color: var(--primary); }
+.stat-card.c2 { border-color: var(--cyan); }
+.stat-card.c3 { border-color: var(--red); }
+.stat-card.c4 { border-color: var(--blue); }
+.stat-card.c5 { border-color: var(--green); }
+.stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.stat-card.c1 .stat-icon { background: #e3f2fd; }
+.stat-card.c2 .stat-icon { background: #e0f7fa; }
+.stat-card.c3 .stat-icon { background: #ffebee; }
+.stat-card.c4 .stat-icon { background: #e3f2fd; }
+.stat-card.c5 .stat-icon { background: #e8f5e9; }
+.stat-val { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+.stat-lbl { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+/* ========== CHART SECTION ========== */
+.chart-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.chart-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.chart-title { font-size: 14px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.chart-title-dot { width: 8px; height: 8px; border-radius: 50%; }
+.chart-body { flex: 1; min-height: 420px; position: relative; }
+.chart-tabs { display: flex; gap: 6px; }
+.chart-tab { padding: 4px 12px; border-radius: 14px; font-size: 12px; cursor: pointer; border: 1px solid var(--border); color: var(--text2); transition: all .2s; }
+.chart-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ========== REGION STATS ========== */
+.region-section { margin-bottom: 20px; }
+.section-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+}
+.section-title::before { content: ''; width: 4px; height: 16px; border-radius: 2px; background: var(--primary); display: inline-block; }
+.region-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.region-card {
+  background: var(--card);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.region-card-hd {
+  padding: 10px 16px;
+  background: linear-gradient(90deg, #1565c0, #1976d2);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.region-card-hd .time { font-size: 11px; opacity: .75; font-weight: 400; }
+.region-rows { padding: 8px 0; }
+.region-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 16px;
+  font-size: 12px;
+  gap: 8px;
+  border-bottom: 1px solid #f4f6fa;
+}
+.region-row:last-child { border-bottom: none; }
+.region-row-icon { font-size: 14px; width: 18px; text-align: center; }
+.region-row-label { color: var(--text2); width: 68px; flex-shrink: 0; }
+.region-row-val { color: var(--text); font-weight: 600; flex: 1; }
+.hot { color: var(--red); }
+.cold { color: var(--blue); }
+.windy { color: var(--purple); }
+.rainy { color: var(--cyan); }
+
+/* ========== TABLE SECTION ========== */
+.table-section { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.table-toolbar {
+  display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.search-box {
+  flex: 1; min-width: 200px; max-width: 340px;
+  display: flex; align-items: center; gap: 8px;
+  background: #f4f7fc; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px;
+}
+.search-box input {
+  flex: 1; border: none; background: transparent; padding: 9px 0; font-size: 14px; outline: none; color: var(--text);
+}
+.search-box svg { color: var(--text2); flex-shrink: 0; }
+.filter-select {
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px;
+  background: #f4f7fc; color: var(--text); outline: none; cursor: pointer;
+}
+.tbl-info { margin-left: auto; font-size: 13px; color: var(--text2); }
+.tbl-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead { position: sticky; top: 0; z-index: 10; }
+thead th {
+  background: #f4f7fc; color: var(--text2); font-weight: 600;
+  padding: 11px 14px; text-align: left; border-bottom: 2px solid var(--border);
+  white-space: nowrap; cursor: pointer; user-select: none; transition: background .15s;
+}
+thead th:hover { background: #e8edf5; }
+thead th.sort-asc::after { content: ' ↑'; color: var(--primary); }
+thead th.sort-desc::after { content: ' ↓'; color: var(--primary); }
+tbody tr { transition: background .1s; }
+tbody tr:hover { background: #f0f6ff; }
+tbody tr:nth-child(even) { background: #fafbfd; }
+tbody tr:nth-child(even):hover { background: #f0f6ff; }
+td { padding: 9px 14px; border-bottom: 1px solid #f0f3f8; white-space: nowrap; color: var(--text); }
+.badge-region {
+  display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  background: #e3f2fd; color: var(--primary);
+}
+.temp-val { font-weight: 700; }
+.temp-hot { color: var(--red); }
+.temp-warm { color: var(--orange); }
+.temp-cool { color: var(--blue); }
+.temp-cold { color: #5c6bc0; }
+.na { color: #bbb; font-size: 12px; }
+.wind-arrow { display: inline-block; font-size: 16px; margin-right: 4px; }
+.loading-mask {
+  display: flex; align-items: center; justify-content: center;
+  padding: 60px 0; gap: 12px; color: var(--text2); font-size: 14px;
+}
+.loading-circle { width: 20px; height: 20px; border: 2.5px solid #dde4ee; border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+.empty-hint { text-align: center; padding: 60px 0; color: var(--text2); font-size: 14px; }
+.empty-hint div { font-size: 36px; margin-bottom: 10px; }
+
+/* ========== TOAST ========== */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: #1a2332; color: #fff; padding: 12px 24px; border-radius: 24px;
+  font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,.3); z-index: 9999;
+  opacity: 0; pointer-events: none; transition: opacity .3s;
+}
+.toast.show { opacity: 1; }
+
+/* ========== COUNTDOWN ========== */
+.countdown { font-variant-numeric: tabular-nums; }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+  .chart-section { grid-template-columns: 1fr; }
+  .status-bar { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+  .status-bar { grid-template-columns: 1fr 1fr; }
+  .hd-sub, .hd-right > .badge { display: none; }
+}
+</style>
 </head>
 <body>
-<div class="loading-overlay" id="loadingOverlay">
-    <div class="spinner"></div>
-    <span>正在抓取数据，请稍候...</span>
+
+<!-- HEADER -->
+<header class="hd">
+  <div class="hd-logo">
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="32" cy="32" r="28" stroke="white" stroke-width="2.5" stroke-opacity=".5"/>
+      <path d="M14 32 Q20 18 32 18 Q44 18 50 32" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+      <path d="M10 38 Q18 28 32 28 Q46 28 54 38" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity=".7"/>
+      <circle cx="32" cy="32" r="4" fill="white" opacity=".9"/>
+      <line x1="32" y1="8" x2="32" y2="14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="32" y1="50" x2="32" y2="56" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="8" y1="32" x2="14" y2="32" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="50" y1="32" x2="56" y2="32" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <div class="hd-title">东亚气象数据监控</div>
+      <div class="hd-sub">EAST ASIA WEATHER MONITOR</div>
+    </div>
+  </div>
+  <div class="hd-right">
+    <div class="badge">
+      <span class="badge-dot" id="statusDot"></span>
+      <span id="statusText">等待数据</span>
+    </div>
+    <div>
+      下次刷新：<span class="countdown" id="countdown">--:--</span>
+    </div>
+    <div class="hd-clock" id="clock">--:--:--</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <button class="btn-fetch" id="fetchBtn" onclick="doFetch()">
+        <svg id="fetchIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        立即刷新
+      </button>
+      <span style="font-size:10px;opacity:.6;letter-spacing:.5px">站点较多，更新较慢，请谅解</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- STATUS CARDS -->
+<div class="status-bar" id="statusBar">
+  <div class="stat-card c1">
+    <div class="stat-icon">🌐</div>
+    <div><div class="stat-val" id="sTotalStations">--</div><div class="stat-lbl">在线站点</div></div>
+  </div>
+  <div class="stat-card c2">
+    <div class="stat-icon">🗺️</div>
+    <div><div class="stat-val" id="sRegions">--</div><div class="stat-lbl">覆盖地区</div></div>
+  </div>
+  <div class="stat-card c3">
+    <div class="stat-icon">🌡️</div>
+    <div><div class="stat-val" id="sMaxTemp">--</div><div class="stat-lbl">当前最高温 (°C)</div></div>
+  </div>
+  <div class="stat-card c4">
+    <div class="stat-icon">❄️</div>
+    <div><div class="stat-val" id="sMinTemp">--</div><div class="stat-lbl">当前最低温 (°C)</div></div>
+  </div>
+  <div class="stat-card c5">
+    <div class="stat-icon">🕐</div>
+    <div><div class="stat-val" id="sUpdateTime" style="font-size:16px">--</div><div class="stat-lbl">最后更新时间</div></div>
+  </div>
 </div>
 
-<div class="header">
-    <div class="header-left">
-        <h1>🌤 东亚气象数据监控</h1>
-        <span class="count-badge" id="totalCount">-</span>
+<!-- CHARTS -->
+<div class="chart-section">
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">
+        <span class="chart-title-dot" style="background:#1976d2"></span>
+        各地区温度概览 (°C)
+      </div>
+      <div class="chart-tabs">
+        <div class="chart-tab active" onclick="switchTempChart('avg',this)">均值</div>
+        <div class="chart-tab" onclick="switchTempChart('max',this)">最高</div>
+        <div class="chart-tab" onclick="switchTempChart('min',this)">最低</div>
+      </div>
     </div>
-    <div class="header-right">
-        <span id="updateTime">未更新</span>
+    <div class="chart-body"><canvas id="chartTemp"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">
+        <span class="chart-title-dot" style="background:#7b1fa2"></span>
+        各地区风速分布 (m/s)
+      </div>
     </div>
+    <div class="chart-body"><canvas id="chartWind"></canvas></div>
+  </div>
 </div>
 
-<div class="container">
-    <div class="toolbar">
-        <input type="text" id="searchInput" placeholder="搜索站号、城市、地区..." autocomplete="off">
-        <button class="btn btn-primary" id="fetchBtn" onclick="fetchData()">🔄 抓取数据</button>
-        <div class="status-bar">
-            <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">就绪</span>
-        </div>
-        <div class="time-cache" id="cacheInfo"></div>
-    </div>
-
-    <!-- 主数据表 -->
-    <div class="table-section">
-        <div class="section-header">
-            <span>📊 站点实时数据</span>
-            <span id="tableCount" style="font-weight:400;color:#999;font-size:13px;"></span>
-        </div>
-        <div class="table-wrap">
-            <table id="mainTable">
-                <thead><tr id="mainHeader"></tr></thead>
-                <tbody id="mainBody"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- 统计面板 -->
-    <div class="table-section">
-        <div class="section-header">
-            <span>📈 区域极值统计（6小时内）</span>
-        </div>
-        <div id="statsContainer" class="stat-grid">
-            <div class="stat-grid-empty">点击「抓取数据」开始统计</div>
-        </div>
-    </div>
+<!-- REGION STATS -->
+<div class="region-section">
+  <div class="section-title">地区气象极值统计</div>
+  <div class="region-grid" id="regionGrid">
+    <div class="empty-hint"><div>🗺️</div>暂无地区数据，请先刷新</div>
+  </div>
 </div>
+
+<!-- DATA TABLE -->
+<div class="table-section">
+  <div class="table-toolbar">
+    <div class="search-box">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="搜索站点名称 / 站号 / 地区…" oninput="filterTable()">
+    </div>
+    <select class="filter-select" id="regionFilter" onchange="filterTable()">
+      <option value="">全部地区</option>
+    </select>
+    <select class="filter-select" id="sourceFilter" onchange="filterTable()">
+      <option value="">全部来源</option>
+    </select>
+    <div class="tbl-info" id="tblInfo">共 0 条</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortTable('station_id')">站号</th>
+          <th onclick="sortTable('region')">地区</th>
+          <th onclick="sortTable('city')">站点名称</th>
+          <th onclick="sortTable('temp')">瞬时温度 (°C)</th>
+          <th onclick="sortTable('hum')">相对湿度 (%)</th>
+          <th onclick="sortTable('precip')">1h 降水 (mm)</th>
+          <th onclick="sortTable('winddir')">2min 风向</th>
+          <th onclick="sortTable('wind')">2min 风速 (m/s)</th>
+          <th onclick="sortTable('time')">更新时间</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="9"><div class="empty-hint"><div>📡</div>暂无数据，请点击「立即刷新」</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<div class="toast" id="toast"></div>
 
 <script>
-// ==================== 全局变量 ====================
-let cachedStations = [];
-let cachedStats = [];
-let currentSort = { column: -1, asc: true };
+// ===== DATA STORE =====
+let allStations = [];
+let allStats = [];
+let tempChartMode = 'avg';
+let sortKey = '';
+let sortDir = 1;
+let historyData = [];
+let countdown = 1800;
+let countdownTimer = null;
 
-// 表头定义
-const COLUMNS = ['站号', '地区', '站点名称', '瞬时温度', '相对湿度', '1小时降水', '2分钟平均风向', '2分钟平均风速', '更新时间'];
+// ===== CHARTS =====
+let charts = {};
 
-// ==================== 数据获取 ====================
-async function fetchData() {
-    const btn = document.getElementById('fetchBtn');
-    const overlay = document.getElementById('loadingOverlay');
-    btn.disabled = true;
-    overlay.classList.add('show');
-    setStatus('loading', '正在抓取...');
+function makeChart(id, cfg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(el, cfg);
+  return charts[id];
+}
 
-    try {
-        const resp = await fetch('/api/fetch', { method: 'POST' });
-        const data = await resp.json();
-        if (data.success) {
-            cachedStations = data.stations;
-            cachedStats = data.stats || [];
-            renderTable(cachedStations);
-            renderStats(cachedStats);
-            document.getElementById('totalCount').textContent = data.total;
-            document.getElementById('updateTime').textContent = '更新: ' + (data.update_time || '');
-            setStatus('ok', '数据已更新 (' + data.total + ' 个站点)');
-        } else {
-            setStatus('error', '抓取失败: ' + (data.error || '未知错误'));
-        }
-    } catch (e) {
-        setStatus('error', '网络错误: ' + e.message);
-    } finally {
-        btn.disabled = false;
-        overlay.classList.remove('show');
+// ===== CLOCK =====
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('zh-CN', {hour12: false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===== COUNTDOWN =====
+function startCountdown(sec) {
+  countdown = sec;
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(countdownTimer);
+      doFetch();
+      return;
     }
+    const m = String(Math.floor(countdown/60)).padStart(2,'0');
+    const s = String(countdown % 60).padStart(2,'0');
+    document.getElementById('countdown').textContent = m+':'+s;
+  }, 1000);
 }
 
-async function loadCachedData() {
-    try {
-        const resp = await fetch('/api/data');
-        const data = await resp.json();
-        if (data.stations && data.stations.length > 0) {
-            cachedStations = data.stations;
-            cachedStats = data.stats || [];
-            renderTable(cachedStations);
-            renderStats(cachedStats);
-            document.getElementById('totalCount').textContent = cachedStations.length;
-            document.getElementById('updateTime').textContent = '更新: ' + (data.update_time || '');
-            setStatus('ok', '已加载缓存 (' + cachedStations.length + ' 个站点)');
-        }
-    } catch (e) {}
-}
-
-// ==================== 渲染表格 ====================
-function renderTable(stations) {
-    const header = document.getElementById('mainHeader');
-    const body = document.getElementById('mainBody');
-    header.innerHTML = '';
-    body.innerHTML = '';
-
-    // 渲染表头
-    COLUMNS.forEach((name, idx) => {
-        const th = document.createElement('th');
-        th.textContent = name;
-        th.onclick = () => sortTable(idx);
-        th.dataset.col = idx;
-        const icon = document.createElement('span');
-        icon.className = 'sort-icon';
-        icon.textContent = '⇅';
-        th.appendChild(icon);
-        header.appendChild(th);
-    });
-
-    // 渲染数据行
-    stations.forEach(s => {
-        const tr = document.createElement('tr');
-        const data = s.data || {};
-        const vals = [
-            s.station_id || '',
-            s.region || '',
-            s.city || '',
-            data['瞬时温度'] || 'N/A',
-            data['相对湿度'] || 'N/A',
-            data['1小时降水'] || 'N/A',
-            data['2分钟平均风向'] || 'N/A',
-            data['2分钟平均风速'] || 'N/A',
-            s.time || 'N/A',
-        ];
-        vals.forEach(v => {
-            const td = document.createElement('td');
-            td.textContent = v;
-            tr.appendChild(td);
-        });
-        body.appendChild(tr);
-    });
-
-    document.getElementById('tableCount').textContent = '共 ' + stations.length + ' 条记录';
-}
-
-// ==================== 排序 ====================
-function sortTable(colIdx) {
-    const headers = document.querySelectorAll('#mainHeader th');
-    headers.forEach(h => h.classList.remove('sorted'));
-
-    if (currentSort.column === colIdx) {
-        currentSort.asc = !currentSort.asc;
+// ===== FETCH =====
+async function doFetch() {
+  const btn = document.getElementById('fetchBtn');
+  const icon = document.getElementById('fetchIcon');
+  btn.disabled = true;
+  icon.classList.add('spin');
+  setStatus('正在抓取数据…', false);
+  showToast('正在后台抓取数据，请稍候…');
+  try {
+    const res = await fetch('/api/fetch', {method:'POST'});
+    const json = await res.json();
+    if (json.success) {
+      allStations = json.stations || [];
+      allStats = json.stats || [];
+      renderAll(json.update_time);
+      showToast(`✅ 数据已更新，共 ${allStations.length} 个站点`);
+      setStatus('数据已更新', true);
+      startCountdown(1800);
     } else {
-        currentSort.column = colIdx;
-        currentSort.asc = true;
+      showToast('❌ 抓取失败：' + (json.error || '未知错误'));
+      setStatus('抓取失败', false);
     }
-    headers[colIdx].classList.add('sorted');
-
-    const sorted = [...cachedStations].sort((a, b) => {
-        const getVal = (s) => {
-            const data = s.data || {};
-            const map = ['station_id', 'region', 'city', '瞬时温度', '相对湿度', '1小时降水', '2分钟平均风向', '2分钟平均风速'];
-            if (colIdx < 3) {
-                return (s[map[colIdx]] || '').toString().localeCompare('zh-CN');
-            }
-            if (colIdx === 8) return (s.time || '').toString().localeCompare('zh-CN');
-            const raw = data[map[colIdx]] || 'N/A';
-            const num = parseFloat(raw);
-            return isNaN(num) ? -Infinity : num;
-        };
-        const va = getVal(a), vb = getVal(b);
-        if (typeof va === 'number' && typeof vb === 'number') {
-            return currentSort.asc ? va - vb : vb - va;
-        }
-        const sa = String(va), sb = String(vb);
-        return currentSort.asc ? sa.localeCompare(sb, 'zh-CN') : sb.localeCompare(sa, 'zh-CN');
-    });
-
-    renderTable(sorted);
-}
-
-// ==================== 渲染统计 ====================
-function renderStats(stats) {
-    const container = document.getElementById('statsContainer');
-    if (!stats || stats.length === 0) {
-        container.innerHTML = '<div class="stat-grid-empty">暂无统计数据</div>';
-        return;
-    }
-    container.innerHTML = '';
-    stats.forEach(s => {
-        const card = document.createElement('div');
-        card.className = 'stat-card';
-        card.innerHTML = `
-            <div class="region-name">${s.region}</div>
-            <div class="stat-row"><span class="stat-label">最高气温</span><span class="stat-value">${s.max_temp || 'N/A'}</span></div>
-            <div class="stat-row"><span class="stat-label">最低气温</span><span class="stat-value">${s.min_temp || 'N/A'}</span></div>
-            <div class="stat-row"><span class="stat-label">最高湿度</span><span class="stat-value">${s.max_hum || 'N/A'}</span></div>
-            <div class="stat-row"><span class="stat-label">最低湿度</span><span class="stat-value">${s.min_hum || 'N/A'}</span></div>
-            <div class="stat-row"><span class="stat-label">最大降水</span><span class="stat-value">${s.max_precip || 'N/A'}</span></div>
-            <div class="stat-row"><span class="stat-label">最大风速</span><span class="stat-value">${s.max_wind || 'N/A'}</span></div>
-            <div class="stat-row"><span class="stat-label">主要时间</span><span class="stat-value">${s.common_time || 'N/A'}</span></div>
-        `;
-        container.appendChild(card);
-    });
-}
-
-// ==================== 搜索（防抖） ====================
-let searchTimer = null;
-document.getElementById('searchInput').addEventListener('input', function() {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => doSearch(this.value), 300);
-});
-
-async function doSearch(q) {
-    if (!q.trim()) {
-        renderTable(cachedStations);
-        document.getElementById('tableCount').textContent = '共 ' + cachedStations.length + ' 条记录';
-        return;
-    }
+  } catch(e) {
+    // try cached
     try {
-        const resp = await fetch('/api/search?q=' + encodeURIComponent(q));
-        const data = await resp.json();
-        if (data.stations) {
-            renderTable(data.stations);
-            document.getElementById('tableCount').textContent = '搜索: ' + data.stations.length + ' 条';
-        }
-    } catch (e) {}
+      const r2 = await fetch('/api/data');
+      const j2 = await r2.json();
+      allStations = j2.stations || [];
+      allStats = j2.stats || [];
+      renderAll(j2.update_time);
+      setStatus('已加载缓存', true);
+    } catch {}
+    showToast('❌ 网络错误：' + e.message);
+  }
+  btn.disabled = false;
+  icon.classList.remove('spin');
 }
 
-// ==================== 状态 ====================
-function setStatus(type, text) {
-    const dot = document.getElementById('statusDot');
-    const txt = document.getElementById('statusText');
-    dot.className = 'status-dot ' + type;
-    txt.textContent = text;
+// Load cached on start
+async function loadCached() {
+  try {
+    const r = await fetch('/api/data');
+    const j = await r.json();
+    if (j.stations && j.stations.length > 0) {
+      allStations = j.stations;
+      allStats = j.stats || [];
+      renderAll(j.update_time);
+      setStatus('已加载缓存', true);
+    }
+  } catch {}
 }
 
-// ==================== 自动加载（页面打开时） ====================
-window.onload = function() {
-    loadCachedData();
-    // 自动抓取（如果无缓存）
-    setTimeout(() => {
-        if (cachedStations.length === 0) fetchData();
-    }, 500);
+// ===== RENDER ALL =====
+function renderAll(updateTime) {
+  renderStatusCards(updateTime);
+  renderCharts();
+  renderRegionCards();
+  filterTable();
+  buildFilters();
+}
+
+// ===== STATUS CARDS =====
+function renderStatusCards(updateTime) {
+  document.getElementById('sTotalStations').textContent = allStations.length;
+  const regions = new Set(allStations.map(s => s.region).filter(Boolean));
+  document.getElementById('sRegions').textContent = regions.size;
+
+  let maxT = null, minT = null;
+  allStations.forEach(s => {
+    const t = parseNum(s.data?.['瞬时温度']);
+    if (t !== null) {
+      if (maxT === null || t > maxT) maxT = t;
+      if (minT === null || t < minT) minT = t;
+    }
+  });
+  document.getElementById('sMaxTemp').textContent = maxT !== null ? maxT.toFixed(1) : '--';
+  document.getElementById('sMinTemp').textContent = minT !== null ? minT.toFixed(1) : '--';
+  document.getElementById('sUpdateTime').textContent = updateTime || '--';
+}
+
+// ===== CHARTS =====
+function renderCharts() {
+  renderTempChart();
+  renderWindChart();
+}
+
+// 完整排序顺序：23省 + 5自治区 + 4直辖市 + 2特区 + 周边国家
+const REGION_SORT_ORDER = [
+  // 23个省（含台湾省）
+  '河北','山西','辽宁','吉林','黑龙江',
+  '江苏','浙江','安徽','福建','江西','山东',
+  '河南','湖北','湖南','广东','海南',
+  '四川','贵州','云南','陕西','甘肃','青海','台湾',
+  // 5个自治区
+  '内蒙古','广西','西藏','宁夏','新疆',
+  // 4个直辖市
+  '北京','天津','上海','重庆',
+  // 2个特别行政区
+  '香港','澳门',
+  // 周边国家
+  '日本','韩国','朝鲜','越南','蒙古国','蒙古',
+];
+
+// 模糊匹配：数据中可能带"省"/"市"/"自治区"等后缀，统一用前缀匹配
+function getRegionSortIndex(region) {
+  if (!region) return 9999;
+  for (let i = 0; i < REGION_SORT_ORDER.length; i++) {
+    const key = REGION_SORT_ORDER[i];
+    if (region === key || region.startsWith(key) || key.startsWith(region)) return i;
+  }
+  return 9000; // 其他地区放最后
+}
+
+// Group by region, sorted by defined order
+function groupByRegion() {
+  const groups = {};
+  allStations.forEach(s => {
+    const r = s.region || '其他';
+    if (!groups[r]) groups[r] = { temps:[], hums:[], winds:[], precips:[], names:[] };
+    const t = parseNum(s.data?.['瞬时温度']);
+    const h = parseNum(s.data?.['相对湿度']);
+    const w = parseNum(s.data?.['2分钟平均风速']);
+    const p = parsePrecip(s.data?.['1小时降水']);
+    if (t !== null) groups[r].temps.push(t);
+    if (h !== null) groups[r].hums.push(h);
+    if (w !== null) groups[r].winds.push(w);
+    if (p !== null) groups[r].precips.push({v:p, name: s.city||s.station_id});
+  });
+  const sorted = {};
+  Object.keys(groups)
+    .sort((a, b) => getRegionSortIndex(a) - getRegionSortIndex(b))
+    .forEach(k => { sorted[k] = groups[k]; });
+  return sorted;
+}
+
+function renderTempChart() {
+  const groups = groupByRegion();
+  const labels = Object.keys(groups);
+  const avg = labels.map(r => avg_(groups[r].temps));
+  const max = labels.map(r => groups[r].temps.length ? Math.max(...groups[r].temps) : null);
+  const min = labels.map(r => groups[r].temps.length ? Math.min(...groups[r].temps) : null);
+
+  const dataMap = { avg, max, min };
+  const colorMap = { avg: '#1976d2', max: '#e53935', min: '#5c6bc0' };
+  const vals = dataMap[tempChartMode];
+
+  makeChart('chartTemp', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: {avg:'均温',max:'最高温',min:'最低温'}[tempChartMode] + ' (°C)',
+        data: vals,
+        backgroundColor: vals.map(v => {
+          if (v === null) return '#e0e0e0';
+          if (v >= 35) return '#e53935cc';
+          if (v >= 25) return '#fb8c00cc';
+          if (v >= 15) return '#1976d2cc';
+          if (v >= 5) return '#5c6bc0cc';
+          return '#4fc3f7cc';
+        }),
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: {display:false}, tooltip: {callbacks:{label: ctx => ` ${ctx.parsed.y?.toFixed(1)}°C`}} },
+      scales: {
+        x: {
+          grid: {display:false},
+          ticks: {
+            font: {size:11},
+            maxRotation: 0,
+            minRotation: 0,
+            autoSkip: false,
+            callback: function(val, index) {
+              const label = this.getLabelForValue(val);
+              return label ? label.split('') : val;
+            }
+          }
+        },
+        y: { grid:{color:'#f0f3f8'}, ticks:{font:{size:11}, callback: v => v+'°C'} }
+      },
+      layout: { padding: { bottom: 6 } }
+    }
+  });
+}
+
+function switchTempChart(mode, el) {
+  tempChartMode = mode;
+  document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderTempChart();
+}
+
+
+function renderWindChart() {
+  const groups = groupByRegion();
+  const labels = Object.keys(groups);
+  const vals = labels.map(r => avg_(groups[r].winds));
+
+  makeChart('chartWind', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '平均风速 (m/s)',
+        data: vals,
+        backgroundColor: vals.map(v => {
+          if (v === null) return '#e0e0e0';
+          if (v >= 10) return '#7b1fa2cc';
+          if (v >= 6) return '#ab47bccc';
+          if (v >= 3) return '#ce93d8cc';
+          return '#e1bee7cc';
+        }),
+        borderRadius: 5, borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y?.toFixed(1)} m/s`}} },
+      scales: {
+        x: {
+          grid: {display:false},
+          ticks: {
+            font: {size:11},
+            maxRotation: 0,
+            minRotation: 0,
+            autoSkip: false,
+            callback: function(val, index) {
+              const label = this.getLabelForValue(val);
+              return label ? label.split('') : val;
+            }
+          }
+        },
+        y: {grid:{color:'#f0f3f8'}, ticks:{font:{size:11}, callback:v=>v+' m/s'}}
+      },
+      layout: { padding: { bottom: 6 } }
+    }
+  });
+}
+
+
+
+// ===== REGION CARDS =====
+function renderRegionCards() {
+  const grid = document.getElementById('regionGrid');
+  if (!allStats.length) {
+    grid.innerHTML = '<div class="empty-hint"><div>🗺️</div>暂无地区数据</div>';
+    return;
+  }
+  const sorted = [...allStats].sort((a, b) =>
+    getRegionSortIndex(a.region) - getRegionSortIndex(b.region)
+  );
+  grid.innerHTML = sorted.map(r => `
+    <div class="region-card">
+      <div class="region-card-hd">
+        <span>📍 ${r.region}</span>
+        <span class="time">${r.common_time?.slice(11)||''}</span>
+      </div>
+      <div class="region-rows">
+        <div class="region-row">
+          <span class="region-row-icon">🌡️</span>
+          <span class="region-row-label">最高温</span>
+          <span class="region-row-val hot">${formatStatVal(r.max_temp,'°C')}</span>
+        </div>
+        <div class="region-row">
+          <span class="region-row-icon">❄️</span>
+          <span class="region-row-label">最低温</span>
+          <span class="region-row-val cold">${formatStatVal(r.min_temp,'°C')}</span>
+        </div>
+        <div class="region-row">
+          <span class="region-row-icon">💧</span>
+          <span class="region-row-label">最高湿度</span>
+          <span class="region-row-val">${formatStatVal(r.max_hum,'%')}</span>
+        </div>
+        <div class="region-row">
+          <span class="region-row-icon">🌧️</span>
+          <span class="region-row-label">最大降水</span>
+          <span class="region-row-val rainy">${formatStatVal(r.max_precip,'mm')}</span>
+        </div>
+        <div class="region-row">
+          <span class="region-row-icon">💨</span>
+          <span class="region-row-label">最大风速</span>
+          <span class="region-row-val windy">${formatStatVal(r.max_wind,'m/s')}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatStatVal(raw, unit) {
+  if (!raw || raw === 'N/A') return '<span class="na">N/A</span>';
+  // "12.5C (北京)" or "12.5% (XX)"
+  return raw.replace(/C$/, '°C').replace(/(\d+\.?\d*)(°?C|%|mm|m\/s)\s*\((.+)\)/, (_, v, u, nm) =>
+    `${parseFloat(v).toFixed(1)}${u} <span style="color:#999;font-weight:400;font-size:11px">(${nm})</span>`
+  );
+}
+
+// ===== TABLE =====
+function buildFilters() {
+  const regions = [...new Set(allStations.map(s => s.region).filter(Boolean))].sort();
+  const rfil = document.getElementById('regionFilter');
+  const cur = rfil.value;
+  rfil.innerHTML = '<option value="">全部地区</option>' +
+    regions.map(r => `<option value="${r}" ${r===cur?'selected':''}>${r}</option>`).join('');
+}
+
+let filteredStations = [];
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const reg = document.getElementById('regionFilter').value;
+  filteredStations = allStations.filter(s => {
+    if (reg && s.region !== reg) return false;
+    if (q && !(
+      (s.station_id||'').toLowerCase().includes(q) ||
+      (s.city||'').toLowerCase().includes(q) ||
+      (s.region||'').toLowerCase().includes(q)
+    )) return false;
+    return true;
+  });
+  if (sortKey) doSort();
+  else renderTable(filteredStations);
+}
+
+function sortTable(key) {
+  const th = event.target;
+  document.querySelectorAll('thead th').forEach(t => t.classList.remove('sort-asc','sort-desc'));
+  if (sortKey === key) sortDir = -sortDir;
+  else { sortKey = key; sortDir = 1; }
+  th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  doSort();
+}
+
+function doSort() {
+  const keyMap = {
+    station_id: s => s.station_id||'',
+    region: s => s.region||'',
+    city: s => s.city||'',
+    temp: s => parseNum(s.data?.['瞬时温度']) ?? -999,
+    hum: s => parseNum(s.data?.['相对湿度']) ?? -999,
+    precip: s => parsePrecip(s.data?.['1小时降水']) ?? -999,
+    wind: s => parseNum(s.data?.['2分钟平均风速']) ?? -999,
+    winddir: s => s.data?.['2分钟平均风向']||'',
+    time: s => s.time||'',
+  };
+  const fn = keyMap[sortKey] || (s => '');
+  filteredStations.sort((a,b) => {
+    const va = fn(a), vb = fn(b);
+    if (typeof va === 'number') return (va - vb) * sortDir;
+    return va.localeCompare(vb, 'zh') * sortDir;
+  });
+  renderTable(filteredStations);
+}
+
+function renderTable(stations) {
+  const tbody = document.getElementById('tableBody');
+  document.getElementById('tblInfo').textContent = `共 ${stations.length} 条`;
+  if (!stations.length) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-hint"><div>🔍</div>未找到匹配站点</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = stations.map(s => {
+    const d = s.data || {};
+    const t = parseNum(d['瞬时温度']);
+    const h = parseNum(d['相对湿度']);
+    const p = parsePrecip(d['1小时降水']);
+    const w = parseNum(d['2分钟平均风速']);
+    const wd = d['2分钟平均风向'];
+    return `<tr>
+      <td><code style="font-size:12px;color:#666">${s.station_id||'--'}</code></td>
+      <td><span class="badge-region">${s.region||'--'}</span></td>
+      <td>${s.city||'--'}</td>
+      <td>${tempCell(t)}</td>
+      <td>${h !== null ? `<span style="color:#00acc1;font-weight:600">${h.toFixed(0)}<span style="color:#999;font-weight:400;font-size:11px">%</span></span>` : '<span class="na">N/A</span>'}</td>
+      <td>${p !== null && p > 0 ? `<span style="color:#0288d1;font-weight:600">${p.toFixed(1)}<span style="color:#999;font-weight:400;font-size:11px">mm</span></span>` : (p === 0 ? '<span style="color:#b0bec5">0mm</span>' : '<span class="na">N/A</span>')}</td>
+      <td>${windDirCell(wd)}</td>
+      <td>${w !== null ? `<span style="color:#7b1fa2;font-weight:600">${w.toFixed(1)}<span style="color:#999;font-weight:400;font-size:11px">m/s</span></span>` : '<span class="na">N/A</span>'}</td>
+      <td style="color:#888;font-size:12px">${s.time||'--'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function tempCell(t) {
+  if (t === null) return '<span class="na">N/A</span>';
+  let cls = 'temp-val ';
+  if (t >= 35) cls += 'temp-hot';
+  else if (t >= 20) cls += 'temp-warm';
+  else if (t >= 5) cls += 'temp-cool';
+  else cls += 'temp-cold';
+  return `<span class="${cls}">${t.toFixed(1)}<span style="color:#999;font-weight:400;font-size:11px">°C</span></span>`;
+}
+
+const DIR_ARROWS = {
+  '北':'↑','南':'↓','东':'→','西':'←',
+  '东北':'↗','东南':'↘','西南':'↙','西北':'↖',
+  'N':'↑','S':'↓','E':'→','W':'←',
+  'NE':'↗','SE':'↘','SW':'↙','NW':'↖',
 };
+function windDirCell(wd) {
+  if (!wd || wd === 'N/A') return '<span class="na">N/A</span>';
+  let arrow = '';
+  for (const [k,v] of Object.entries(DIR_ARROWS)) {
+    if (wd.includes(k)) { arrow = v; break; }
+  }
+  return `<span style="font-size:14px">${arrow}</span> ${wd}`;
+}
+
+// ===== HELPERS =====
+function parseNum(val) {
+  if (!val || val === 'N/A' || val === '9999') return null;
+  const n = parseFloat(val);
+  if (isNaN(n) || n === 9999) return null;
+  return n;
+}
+
+function parsePrecip(val) {
+  if (!val || val === 'N/A') return null;
+  const m = val.match(/([\d.]+)\s*mm/);
+  if (m) return parseFloat(m[1]);
+  const n = parseFloat(val);
+  return isNaN(n) ? null : n;
+}
+
+function avg_(arr) {
+  if (!arr || !arr.length) return null;
+  return arr.reduce((a,b) => a+b, 0) / arr.length;
+}
+
+
+// ===== STATUS =====
+function setStatus(text, ok) {
+  document.getElementById('statusText').textContent = text;
+  document.getElementById('statusDot').style.background = ok ? '#69f0ae' : '#ff8a65';
+}
+
+// ===== TOAST =====
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ===== INIT =====
+window.addEventListener('DOMContentLoaded', () => {
+  loadCached().then(() => {
+    if (!allStations.length) {
+      // render empty charts
+      renderCharts();
+    }
+  });
+  startCountdown(1800);
+});
 </script>
 </body>
 </html>
