@@ -1,0 +1,469 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>东亚气象数据监控</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }
+        .container { max-width: 1600px; margin: 0 auto; padding: 16px; }
+        .toolbar {
+            background: white;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            flex-wrap: wrap;
+        }
+        .toolbar input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .toolbar input[type="text"]:focus { border-color: #1a73e8; }
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: #1a73e8;
+            color: white;
+        }
+        .btn-primary:hover { background: #1557b0; }
+        .btn-primary:disabled { background: #a0c4ff; cursor: not-allowed; }
+        .btn-success {
+            background: #52c41a;
+            color: white;
+        }
+        .btn-success:hover { background: #389e0d; }
+        .status-bar {
+            font-size: 13px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-dot.ok { background: #52c41a; }
+        .status-dot.loading { background: #faad14; animation: pulse 1s infinite; }
+        .status-dot.error { background: #ff4d4f; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .table-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .section-header {
+            padding: 12px 16px;
+            font-size: 15px;
+            font-weight: 600;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        thead { position: sticky; top: 0; z-index: 1; }
+        th {
+            background: #fafafa;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e8e8e8;
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { background: #f0f0f0; }
+        th .sort-icon { margin-left: 4px; opacity: 0.4; }
+        th.sorted .sort-icon { opacity: 1; color: #1a73e8; }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f5f5f5;
+            white-space: nowrap;
+        }
+        tr:hover td { background: #f5f8ff; }
+        .region-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 12px;
+            padding: 16px;
+        }
+        .stat-card {
+            border: 1px solid #f0f0f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            background: #fafbfc;
+        }
+        .stat-card .region-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #1a73e8;
+        }
+        .stat-card .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 13px;
+        }
+        .stat-card .stat-label { color: #888; }
+        .stat-card .stat-value { font-weight: 500; }
+        .stat-grid-empty {
+            padding: 32px;
+            text-align: center;
+            color: #999;
+        }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.7);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            color: #1a73e8;
+        }
+        .loading-overlay.show { display: flex; }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid #e8e8e8;
+            border-top: 3px solid #1a73e8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .count-badge {
+            display: inline-block;
+            background: #e6f7ff;
+            color: #1890ff;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .time-cache {
+            font-size: 12px;
+            color: #999;
+        }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 18px; }
+            .header-right { font-size: 12px; }
+            .stat-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <span>正在抓取数据，请稍候...</span>
+</div>
+
+<div class="header">
+    <div class="header-left">
+        <h1>🌤 东亚气象数据监控</h1>
+        <span class="count-badge" id="totalCount">-</span>
+    </div>
+    <div class="header-right">
+        <span id="updateTime">未更新</span>
+    </div>
+</div>
+
+<div class="container">
+    <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="搜索站号、城市、地区..." autocomplete="off">
+        <button class="btn btn-primary" id="fetchBtn" onclick="fetchData()">🔄 抓取数据</button>
+        <div class="status-bar">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">就绪</span>
+        </div>
+        <div class="time-cache" id="cacheInfo"></div>
+    </div>
+
+    <!-- 主数据表 -->
+    <div class="table-section">
+        <div class="section-header">
+            <span>📊 站点实时数据</span>
+            <span id="tableCount" style="font-weight:400;color:#999;font-size:13px;"></span>
+        </div>
+        <div class="table-wrap">
+            <table id="mainTable">
+                <thead><tr id="mainHeader"></tr></thead>
+                <tbody id="mainBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 统计面板 -->
+    <div class="table-section">
+        <div class="section-header">
+            <span>📈 区域极值统计（6小时内）</span>
+        </div>
+        <div id="statsContainer" class="stat-grid">
+            <div class="stat-grid-empty">点击「抓取数据」开始统计</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== 全局变量 ====================
+let cachedStations = [];
+let cachedStats = [];
+let currentSort = { column: -1, asc: true };
+
+// 表头定义
+const COLUMNS = ['站号', '地区', '站点名称', '瞬时温度', '相对湿度', '1小时降水', '2分钟平均风向', '2分钟平均风速', '更新时间'];
+
+// ==================== 数据获取 ====================
+async function fetchData() {
+    const btn = document.getElementById('fetchBtn');
+    const overlay = document.getElementById('loadingOverlay');
+    btn.disabled = true;
+    overlay.classList.add('show');
+    setStatus('loading', '正在抓取...');
+
+    try {
+        const resp = await fetch('/api/fetch', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            cachedStations = data.stations;
+            cachedStats = data.stats || [];
+            renderTable(cachedStations);
+            renderStats(cachedStats);
+            document.getElementById('totalCount').textContent = data.total;
+            document.getElementById('updateTime').textContent = '更新: ' + (data.update_time || '');
+            setStatus('ok', '数据已更新 (' + data.total + ' 个站点)');
+        } else {
+            setStatus('error', '抓取失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) {
+        setStatus('error', '网络错误: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        overlay.classList.remove('show');
+    }
+}
+
+async function loadCachedData() {
+    try {
+        const resp = await fetch('/api/data');
+        const data = await resp.json();
+        if (data.stations && data.stations.length > 0) {
+            cachedStations = data.stations;
+            cachedStats = data.stats || [];
+            renderTable(cachedStations);
+            renderStats(cachedStats);
+            document.getElementById('totalCount').textContent = cachedStations.length;
+            document.getElementById('updateTime').textContent = '更新: ' + (data.update_time || '');
+            setStatus('ok', '已加载缓存 (' + cachedStations.length + ' 个站点)');
+        }
+    } catch (e) {}
+}
+
+// ==================== 渲染表格 ====================
+function renderTable(stations) {
+    const header = document.getElementById('mainHeader');
+    const body = document.getElementById('mainBody');
+    header.innerHTML = '';
+    body.innerHTML = '';
+
+    // 渲染表头
+    COLUMNS.forEach((name, idx) => {
+        const th = document.createElement('th');
+        th.textContent = name;
+        th.onclick = () => sortTable(idx);
+        th.dataset.col = idx;
+        const icon = document.createElement('span');
+        icon.className = 'sort-icon';
+        icon.textContent = '⇅';
+        th.appendChild(icon);
+        header.appendChild(th);
+    });
+
+    // 渲染数据行
+    stations.forEach(s => {
+        const tr = document.createElement('tr');
+        const data = s.data || {};
+        const vals = [
+            s.station_id || '',
+            s.region || '',
+            s.city || '',
+            data['瞬时温度'] || 'N/A',
+            data['相对湿度'] || 'N/A',
+            data['1小时降水'] || 'N/A',
+            data['2分钟平均风向'] || 'N/A',
+            data['2分钟平均风速'] || 'N/A',
+            s.time || 'N/A',
+        ];
+        vals.forEach(v => {
+            const td = document.createElement('td');
+            td.textContent = v;
+            tr.appendChild(td);
+        });
+        body.appendChild(tr);
+    });
+
+    document.getElementById('tableCount').textContent = '共 ' + stations.length + ' 条记录';
+}
+
+// ==================== 排序 ====================
+function sortTable(colIdx) {
+    const headers = document.querySelectorAll('#mainHeader th');
+    headers.forEach(h => h.classList.remove('sorted'));
+
+    if (currentSort.column === colIdx) {
+        currentSort.asc = !currentSort.asc;
+    } else {
+        currentSort.column = colIdx;
+        currentSort.asc = true;
+    }
+    headers[colIdx].classList.add('sorted');
+
+    const sorted = [...cachedStations].sort((a, b) => {
+        const getVal = (s) => {
+            const data = s.data || {};
+            const map = ['station_id', 'region', 'city', '瞬时温度', '相对湿度', '1小时降水', '2分钟平均风向', '2分钟平均风速'];
+            if (colIdx < 3) {
+                return (s[map[colIdx]] || '').toString().localeCompare('zh-CN');
+            }
+            if (colIdx === 8) return (s.time || '').toString().localeCompare('zh-CN');
+            const raw = data[map[colIdx]] || 'N/A';
+            const num = parseFloat(raw);
+            return isNaN(num) ? -Infinity : num;
+        };
+        const va = getVal(a), vb = getVal(b);
+        if (typeof va === 'number' && typeof vb === 'number') {
+            return currentSort.asc ? va - vb : vb - va;
+        }
+        const sa = String(va), sb = String(vb);
+        return currentSort.asc ? sa.localeCompare(sb, 'zh-CN') : sb.localeCompare(sa, 'zh-CN');
+    });
+
+    renderTable(sorted);
+}
+
+// ==================== 渲染统计 ====================
+function renderStats(stats) {
+    const container = document.getElementById('statsContainer');
+    if (!stats || stats.length === 0) {
+        container.innerHTML = '<div class="stat-grid-empty">暂无统计数据</div>';
+        return;
+    }
+    container.innerHTML = '';
+    stats.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'stat-card';
+        card.innerHTML = `
+            <div class="region-name">${s.region}</div>
+            <div class="stat-row"><span class="stat-label">最高气温</span><span class="stat-value">${s.max_temp || 'N/A'}</span></div>
+            <div class="stat-row"><span class="stat-label">最低气温</span><span class="stat-value">${s.min_temp || 'N/A'}</span></div>
+            <div class="stat-row"><span class="stat-label">最高湿度</span><span class="stat-value">${s.max_hum || 'N/A'}</span></div>
+            <div class="stat-row"><span class="stat-label">最低湿度</span><span class="stat-value">${s.min_hum || 'N/A'}</span></div>
+            <div class="stat-row"><span class="stat-label">最大降水</span><span class="stat-value">${s.max_precip || 'N/A'}</span></div>
+            <div class="stat-row"><span class="stat-label">最大风速</span><span class="stat-value">${s.max_wind || 'N/A'}</span></div>
+            <div class="stat-row"><span class="stat-label">主要时间</span><span class="stat-value">${s.common_time || 'N/A'}</span></div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// ==================== 搜索（防抖） ====================
+let searchTimer = null;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => doSearch(this.value), 300);
+});
+
+async function doSearch(q) {
+    if (!q.trim()) {
+        renderTable(cachedStations);
+        document.getElementById('tableCount').textContent = '共 ' + cachedStations.length + ' 条记录';
+        return;
+    }
+    try {
+        const resp = await fetch('/api/search?q=' + encodeURIComponent(q));
+        const data = await resp.json();
+        if (data.stations) {
+            renderTable(data.stations);
+            document.getElementById('tableCount').textContent = '搜索: ' + data.stations.length + ' 条';
+        }
+    } catch (e) {}
+}
+
+// ==================== 状态 ====================
+function setStatus(type, text) {
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    dot.className = 'status-dot ' + type;
+    txt.textContent = text;
+}
+
+// ==================== 自动加载（页面打开时） ====================
+window.onload = function() {
+    loadCachedData();
+    // 自动抓取（如果无缓存）
+    setTimeout(() => {
+        if (cachedStations.length === 0) fetchData();
+    }, 500);
+};
+</script>
+</body>
+</html>
