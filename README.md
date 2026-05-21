@@ -97,17 +97,6 @@ EastAsia_weatherdata_web/
 | `/api/fetch` | POST | 手动触发立即抓取 |
 | `/api/search?q=关键词` | GET | 搜索过滤站点 |
 
-## 自定义站点
-
-各 `stations/*.json` 文件为站点字典，格式为 `"站点ID": {"city": "城市名", "province": "所属地区"}`。如需增减站点，直接编辑对应 JSON 文件即可，无需改代码。
-
-## TODO
-
-- [ ] 对比过去 N 次数据的趋势曲线
-- [ ] 站点地图标记
-- [ ] 导出 CSV
-- [ ] 数据下载 / 历史存档
-
 ## License
 
 MIT
