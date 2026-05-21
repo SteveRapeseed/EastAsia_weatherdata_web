@@ -97,6 +97,39 @@ EastAsia_weatherdata_web/
 | `/api/fetch` | POST | 手动触发立即抓取 |
 | `/api/search?q=关键词` | GET | 搜索过滤站点 |
 
+## 自定义站点
+
+各 `stations/*.json` 文件为站点字典，格式为 `"站点ID": {"city": "城市名", "province": "所属地区"}`。如需增减站点，直接编辑对应 JSON 文件即可，无需改代码。
+
+## TODO
+
+- [ ] 对比过去 N 次数据的趋势曲线
+- [ ] 站点地图标记
+- [ ] 导出 CSV
+- [ ] 数据下载 / 历史存档
+
 ## License
 
 MIT
+
+
+## CWA（台湾中央气象署）API Key 注册
+
+本程序使用台湾中央气象署开放数据 API 获取台湾地区气象站数据，需要申请 API Key。
+
+**申请步骤：**
+
+1. 打开 [https://opendata.cwa.gov.tw/](https://opendata.cwa.gov.tw/)（台湾中央气象署开放数据平台）
+2. 点击右上角「注册」，注册一个账号（免费）
+3. 登录后进入「会员中心」→「API 金钥管理」
+4. 点击「建立金钥」，选择「授权 O-A0003-001」和「O-A0002-001」数据集
+5. 复制生成的 API Key 字符串
+
+**配置到项目中：**
+
+打开 weather_crawler.py，找到第 477 行：
+
+\\python
+API_KEY = ''  # 将你的 Key 填在引号内
+\
+将你申请的 API Key 填入引号中即可。如果不配置，台湾地区站点数据将无法获取，其他地区不受影响。
