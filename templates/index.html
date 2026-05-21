@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -883,12 +883,38 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+// ===== AUTO POLL: 首次抓取还在后台时自动轮询，抓完即时渲染 =====
+let pollTimer = null;
+let lastEtag = '';
+async function autoPoll() {
+  try {
+    const r = await fetch('/api/status', { cache: 'no-store' });
+    const j = await r.json();
+    if (j.etag && j.etag !== '"empty"' && j.etag !== lastEtag) {
+      lastEtag = j.etag;
+      const rd = await fetch('/api/data', { cache: 'no-store' });
+      const jd = await rd.json();
+      if (jd.stations && jd.stations.length > 0) {
+        allStations = jd.stations;
+        allStats = jd.stats || [];
+        renderAll(jd.update_time);
+        setStatus(`数据已更新 (${allStations.length} 站)`, true);
+      }
+    } else {
+      setStatus(j.fetching ? '抓取中…首次加载约需 1-2 分钟' : '等待下次抓取', !j.fetching);
+    }
+  } catch {}
+}
+
 // ===== INIT =====
 window.addEventListener('DOMContentLoaded', () => {
   loadCached().then(() => {
     if (!allStations.length) {
-      // render empty charts
       renderCharts();
+      setStatus('抓取中…首次加载约需 1-2 分钟', false);
+      // 每 5 秒轮询一次状态，等数据进来
+      pollTimer = setInterval(autoPoll, 5000);
+      autoPoll();
     }
   });
   startCountdown(1800);
