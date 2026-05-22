@@ -474,7 +474,7 @@ import requests
 class CWASource:
     """台湾省地区气象局 (CWA) 官方 API 数据源（含1小时降水）"""
 
-    API_KEY = ''
+    API_KEY = 'CWA-D4E633E7-986B-4063-AD8A-1B663FD0B84C'
     MAIN_API_URL = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0003-001'
     RAIN_API_URL = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001'
 

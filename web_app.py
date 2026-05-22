@@ -225,9 +225,9 @@ def index():
 
 @app.route("/api/fetch", methods=["POST"])
 def api_fetch():
-    """手动刷新"""
+    """手动刷新：仅抓取 NMC + JMA + KMA（中国不含台湾 + 日本 + 韩国）"""
     try:
-        stations = manager.fetch_all()
+        stations = manager.fetch_fast()
         return jsonify({"success": True, "total": len(stations), "update_time": manager._last_update})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
