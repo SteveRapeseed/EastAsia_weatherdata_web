@@ -419,9 +419,19 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ===== COUNTDOWN =====
-function startCountdown(sec) {
-  countdown = sec;
+function getNextHalfHour() {
+  const now = new Date();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+  let targetMin;
+  if (m < 30) targetMin = 30; else targetMin = 60;
+  const target = new Date(now);
+  target.setMinutes(targetMin, 0, 0);
+  return Math.floor((target - now) / 1000);
+}
+function startCountdown() {
   if (countdownTimer) clearInterval(countdownTimer);
+  countdown = getNextHalfHour();
   countdownTimer = setInterval(() => {
     countdown--;
     if (countdown <= 0) {
@@ -452,7 +462,7 @@ async function doFetch() {
       renderAll(json.update_time);
       showToast(`✅ 数据已更新，共 ${allStations.length} 个站点`);
       setStatus('数据已更新', true);
-      startCountdown(1800);
+      startCountdown();
     } else {
       showToast('❌ 抓取失败：' + (json.error || '未知错误'));
       setStatus('抓取失败', false);
@@ -917,7 +927,7 @@ window.addEventListener('DOMContentLoaded', () => {
       autoPoll();
     }
   });
-  startCountdown(1800);
+  startCountdown();
 });
 </script>
 </body>

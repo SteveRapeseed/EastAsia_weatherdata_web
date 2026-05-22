@@ -35,17 +35,48 @@ class WeatherDataManager:
         self._fetching = False
         self._fetch_lock = threading.Lock()
 
+    def _execute_fetch(self, executor, source_list, source_name=""):
+        """通用抓取执行：提交给定源的任务并收集结果"""
+        pairs = []
+        for source, station_keys, fetch_fn in source_list:
+            for key in station_keys:
+                pairs.append((source, key, fetch_fn))
+        for source, key, fn in pairs:
+            executor.submit(fn, key)
+        return pairs
+
+    def _collect_results(self, futures):
+        results = {}
+        for fut in as_completed(futures):
+            try:
+                sid2, city, province, data, time_str = fut.result(timeout=30)
+                if data:
+                    results[sid2] = {"city": city, "region": province, "data": data, "time": time_str or "N/A"}
+            except Exception:
+                pass
+        return results
+
+    def _serialize_cache(self, stations_list):
+        self._cached_result = stations_list
+        self._cached_stats = self._compute_stats(stations_list)
+        self._last_update = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        payload = json.dumps({
+            "stations": stations_list,
+            "stats": self._cached_stats,
+            "update_time": self._last_update,
+        }, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        self._cached_data_payload = payload
+        self._cached_data_etag = '"' + hashlib.md5(payload).hexdigest()[:16] + '"'
+
     def fetch_all(self):
-        # 防止重复并发抓取
+        """全量抓取（所有源），用于自动调度"""
         with self._fetch_lock:
             if self._fetching:
                 return self._cached_result
             self._fetching = True
-
         try:
             results = {}
             t0 = time.time()
-            # 提高并发：50 个 worker 同时跑（IO 密集任务，主要瓶颈是网络）
             with ThreadPoolExecutor(max_workers=50) as executor:
                 futures = []
                 for sid in self.nmc.station_info:
@@ -60,31 +91,37 @@ class WeatherDataManager:
                     futures.append(executor.submit(self.synop.fetch_single, scode))
                 for mcode in self.metar.stations:
                     futures.append(executor.submit(self.metar.fetch_single, mcode))
-
-                for fut in as_completed(futures):
-                    try:
-                        sid2, city, province, data, time_str = fut.result(timeout=30)
-                        if data:
-                            results[sid2] = {"city": city, "region": province, "data": data, "time": time_str or "N/A"}
-                    except Exception:
-                        pass
-
+                results = self._collect_results(futures)
             elapsed = time.time() - t0
             stations_list = [{"station_id": k, **v} for k, v in results.items()]
-            self._cached_result = stations_list
-            self._cached_stats = self._compute_stats(stations_list)
-            self._last_update = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._serialize_cache(stations_list)
+            print(f"[FullFetch] {len(stations_list)} stations in {elapsed:.1f}s", flush=True)
+            return stations_list
+        finally:
+            self._fetching = False
 
-            # 预序列化 JSON 字符串 + ETag，下次 /api/data 直接返回，零开销
-            payload = json.dumps({
-                "stations": stations_list,
-                "stats": self._cached_stats,
-                "update_time": self._last_update,
-            }, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-            self._cached_data_payload = payload
-            self._cached_data_etag = '"' + hashlib.md5(payload).hexdigest()[:16] + '"'
-
-            print(f"[Fetch] {len(stations_list)} stations in {elapsed:.1f}s", flush=True)
+    def fetch_fast(self):
+        """快速抓取：仅 NMC + JMA + KMA（中国不含台湾 + 日本 + 韩国），用于手动刷新"""
+        with self._fetch_lock:
+            if self._fetching:
+                return self._cached_result
+            self._fetching = True
+        try:
+            results = {}
+            t0 = time.time()
+            with ThreadPoolExecutor(max_workers=50) as executor:
+                futures = []
+                for sid in self.nmc.station_info:
+                    futures.append(executor.submit(self.nmc.fetch_single, sid))
+                for jcode in self.jma.stations:
+                    futures.append(executor.submit(self.jma.fetch_single, jcode))
+                for kcode in self.kma.stations:
+                    futures.append(executor.submit(self.kma.fetch_single, kcode))
+                results = self._collect_results(futures)
+            elapsed = time.time() - t0
+            stations_list = [{"station_id": k, **v} for k, v in results.items()]
+            self._serialize_cache(stations_list)
+            print(f"[FastFetch] {len(stations_list)} stations in {elapsed:.1f}s (NMC+JMA+KMA)", flush=True)
             return stations_list
         finally:
             self._fetching = False
@@ -168,8 +205,8 @@ class WeatherDataManager:
             ct = Counter(times).most_common(1)[0][0] if times else "N/A"
             fmt = lambda v, u: f"{v[0]}{u} ({v[1]})" if v[0] is not None else "N/A"
             result.append({"region": reg,
-                           "max_temp": fmt(st["max_temp"], "C"),
-                           "min_temp": fmt(st["min_temp"], "C"),
+                           "max_temp": fmt(st["max_temp"], "°C"),
+                           "min_temp": fmt(st["min_temp"], "°C"),
                            "max_hum": fmt(st["max_hum"], "%"),
                            "min_hum": fmt(st["min_hum"], "%"),
                            "max_precip": fmt(st["max_precip"], "mm"),
@@ -188,6 +225,7 @@ def index():
 
 @app.route("/api/fetch", methods=["POST"])
 def api_fetch():
+    """手动刷新"""
     try:
         stations = manager.fetch_all()
         return jsonify({"success": True, "total": len(stations), "update_time": manager._last_update})
@@ -234,7 +272,8 @@ def api_status():
 
 if __name__ == "__main__":
     from apscheduler.schedulers.background import BackgroundScheduler
-    scheduler = BackgroundScheduler()
+    from apscheduler.triggers.cron import CronTrigger
+    scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
 
     def scheduled_fetch():
         with app.app_context():
@@ -244,9 +283,11 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"[AutoFetch] Error: {e}", flush=True)
 
-    scheduler.add_job(scheduled_fetch, "interval", minutes=30, id="weather_fetch")
+    # 东八区每半小时定点触发：08:00, 08:30, 09:00, 09:30 ...
+    scheduler.add_job(scheduled_fetch, CronTrigger(minute="0,30", timezone="Asia/Shanghai"),
+                      id="weather_fetch", name="half_hourly")
     scheduler.start()
-    print("Auto-fetch every 30 minutes started.", flush=True)
+    print("Auto-fetch scheduled at :00 and :30 every hour (CST/UTC+8).", flush=True)
 
     # 首次抓取完全后台、不阻塞启动
     def delayed_first_fetch():
@@ -258,7 +299,8 @@ if __name__ == "__main__":
     print("=" * 50, flush=True)
     print("  East Asia Weather Monitor - Web Edition", flush=True)
     print("  URL: http://127.0.0.1:5000", flush=True)
-    print("  Auto-fetch: every 30 minutes", flush=True)
+    print("  Auto-fetch: every half hour (:00 / :30 CST)", flush=True)
+    print("  Manual fetch: NMC + JMA + KMA only (fast)", flush=True)
     print("=" * 50, flush=True)
 
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True, use_reloader=False)
