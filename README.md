@@ -5,10 +5,21 @@
 
 ### East Asia Weather Monitor
 
+🌐 **www.eaweathe.com**
+
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0-green?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub Stars](https://img.shields.io/github/stars/SteveRapeseed/EastAsia_weatherdata_web?style=social)](https://github.com/SteveRapeseed/EastAsia_weatherdata_web)
+
+</div>
+
+> **免责声明**  
+> 本站为气象爱好者个人搭建的非商业、非盈利性质学习交流平台，不投放广告，不提供付费服务。  
+> 本站展示的实时气象信息，仅供爱好者个人学习、交流参考，严禁任何个人或机构将其用于商业经营、二次转载分发或衍生制作盈利产品。  
+> 本站数据仅为技术试验性展示，不保证数据的时效性、准确性与完整性。任何预报以及关键决策请以 [中国气象局（www.cma.gov.cn）](https://www.cma.gov.cn) 或 [中央气象台（www.nmc.cn）](https://www.nmc.cn) 等官方渠道发布的信息为准。
+
+<br>
 
 <p align="center">
   <strong>东亚地区多源气象数据实时监控 Web 平台</strong><br>
