@@ -28,7 +28,7 @@ class WeatherDataManager:
         self._cached_result = []
         self._cached_stats = []
         self._last_update = None
-        self._total_stations = sum(len(v) for v in STATIONS.values()) + len(STATIONS.get("metar", {}))
+        self._total_stations = sum(len(v) for v in STATIONS.values())
         # 预序列化 JSON 缓存（每次 fetch 后更新一次，避免每个请求重复 jsonify）
         self._cached_data_payload = b'{"stations":[],"stats":[],"update_time":"No data yet"}'
         self._cached_data_etag = '"empty"'
