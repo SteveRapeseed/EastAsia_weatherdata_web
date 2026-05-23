@@ -1,4 +1,4 @@
-﻿# Python 缓存
+# Python 缓存
 __pycache__/
 *.pyc
 *.pyo
